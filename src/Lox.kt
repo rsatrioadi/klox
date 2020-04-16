@@ -31,17 +31,26 @@ object Lox {
     }
 
     private fun run(source: String) {
-        val scanner = Scanner(source)
-        val tokens: List<Token> = scanner.tokens()
 
-        // For now, just print the tokens.
-        for (token in tokens) {
-            println(token)
-        }
+        val tokens: List<Token> = Scanner(source).tokens()
+        val expression = Parser(tokens).parse()
+
+        // Stop if there was a syntax error.
+        if (hadError) return
+
+        println(AstPrinter().print(expression!!))
     }
 
     fun error(line: Int, message: String) {
         report(line, "", message)
+    }
+
+    fun error(token: Token, message: String) {
+        if (token.type === TokenType.EOF) {
+            report(token.line, " at end", message)
+        } else {
+            report(token.line, " at '" + token.lexeme + "'", message)
+        }
     }
 
     private fun report(line: Int, where: String, message: String) {

@@ -178,8 +178,8 @@ internal class Scanner(private val source: String) {
                 .replace("""\\""", "\\", true)
         addToken(STRING, value)
     }
-}
 
-private fun Char.isValidIdentifier(): Boolean {
-    return this.isLetter() || this == '_'
+    private fun Char.isValidIdentifier(): Boolean {
+        return this.isLetter() || this == '_'
+    }
 }
