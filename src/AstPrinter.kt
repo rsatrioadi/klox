@@ -16,11 +16,15 @@ class AstPrinter : Visitor<String> {
     }
 
     override fun visit(expr: Literal): String {
-        return expr.value?.toString() ?: "nil"
+        return expr.value.toString()
     }
 
     override fun visit(expr: Unary): String {
         return parenthesize(expr.operator.lexeme, expr.right)
+    }
+
+    override fun visit(expr: Empty): String {
+        return ""
     }
 
     private fun parenthesize(name: String, vararg expressions: Expression): String {

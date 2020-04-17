@@ -4,17 +4,16 @@ import me.sar.klox.Expression.*
 import me.sar.klox.TokenType.*
 import kotlin.reflect.KFunction1
 
-
 class Parser(private val tokens: List<Token>) {
     private var current = 0
 
     class ParseError: RuntimeException()
 
-    fun parse(): Expression? {
+    fun parse(): Expression {
         return try {
             expression()
         } catch (e: ParseError) {
-            null
+            Empty
         }
     }
 
@@ -78,7 +77,7 @@ class Parser(private val tokens: List<Token>) {
         if (match(TRUE)) return Literal(true)
 
         // "nil"
-        if (match(NIL)) return Literal(null)
+        if (match(NIL)) return Literal(Nil)
 
         // "(" expression ")"
         if (match(LEFT_PAREN)) {
@@ -92,7 +91,7 @@ class Parser(private val tokens: List<Token>) {
     }
 
     private fun leftAssociativeBinary(operation: KFunction1<Parser, Expression>, vararg operators: TokenType): Expression {
-        // "some clever Java 8" (as Nystrom called it) in Kotlin
+        // "some clever Java 8" (as Nystrom called it) but in Kotlin
         // rule: leftAssociativeBinary -> operation ( ( *operators ) operation )* ;
         // where *operators expands to operators[0] | operators[1] | ...
 

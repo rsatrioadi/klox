@@ -1,14 +1,16 @@
 package me.sar.klox
 
 sealed class Expression {
+
     interface Visitor<R> {
         fun visit(expr: Binary): R
         fun visit(expr: Grouping): R
         fun visit(expr: Literal): R
         fun visit(expr: Unary): R
+        fun visit(expr: Empty): R
     }
-    abstract fun <R> accept(visitor: Visitor<R>): R
 
+    abstract fun <R> accept(visitor: Visitor<R>): R
 
     data class Binary(
             val left: Expression,
@@ -29,7 +31,7 @@ sealed class Expression {
     }
 
     data class Literal(
-            val value: Any?
+            val value: Any
     ): Expression() {
         override fun <R> accept(visitor: Visitor<R>): R {
             return visitor.visit(this)
@@ -40,6 +42,12 @@ sealed class Expression {
             val operator: Token,
             val right: Expression
     ): Expression() {
+        override fun <R> accept(visitor: Visitor<R>): R {
+            return visitor.visit(this)
+        }
+    }
+
+    object Empty: Expression() {
         override fun <R> accept(visitor: Visitor<R>): R {
             return visitor.visit(this)
         }

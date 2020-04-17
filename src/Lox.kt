@@ -7,9 +7,12 @@ import java.nio.file.Files
 import java.nio.file.Paths
 import kotlin.system.exitProcess
 
-
 object Lox {
+
     var hadError = false
+    var hadRuntimeError = false
+
+    private val interpreter = Interpreter()
 
     fun runFile(path: String) {
         val bytes = Files.readAllBytes(Paths.get(path))
@@ -17,6 +20,7 @@ object Lox {
 
         // Indicate an error in the exit code.
         if (hadError) exitProcess(65)
+        if (hadRuntimeError) exitProcess(70)
     }
 
     fun runPrompt() {
@@ -38,7 +42,7 @@ object Lox {
         // Stop if there was a syntax error.
         if (hadError) return
 
-        println(AstPrinter().print(expression!!))
+        interpreter.interpret(expression)
     }
 
     fun error(line: Int, message: String) {
@@ -51,6 +55,11 @@ object Lox {
         } else {
             report(token.line, " at '" + token.lexeme + "'", message)
         }
+    }
+
+    fun runtimeError(error: RuntimeError) {
+        System.err.println("${error.message}\n[line ${error.token.line}]")
+        hadRuntimeError = true
     }
 
     private fun report(line: Int, where: String, message: String) {
