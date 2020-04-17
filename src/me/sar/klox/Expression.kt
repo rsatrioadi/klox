@@ -1,3 +1,4 @@
+// This file was generated using GenerateAsts.kts
 package me.sar.klox
 
 sealed class Expression {
