@@ -1,21 +1,36 @@
 package me.sar.klox
 
-import me.sar.klox.Expression.*
 import me.sar.klox.TokenType.*
 
 
-class Interpreter : Visitor<Any> {
+class Interpreter: Expr.Visitor<Any>, Stmt.Visitor<Nil> {
 
-    fun interpret(expression: Expression) {
+    private var environment = Environment()
+
+    fun interpret(statements: List<Stmt>) {
         try {
-            val value = evaluate(expression)
-            println(value.toString())
+            statements.forEach { statement -> execute(statement) }
         } catch (error: RuntimeError) {
             Lox.runtimeError(error)
         }
     }
 
-    override fun visit(expr: Binary): Any {
+    private fun execute(stmt: Stmt) {
+        stmt.accept(this)
+    }
+
+    private fun executeBlock(statements: List<Stmt>, environment: Environment) {
+        val previous = this.environment
+        try {
+            this.environment = environment
+
+            statements.forEach { statement -> execute(statement) }
+        } finally {
+            this.environment = previous
+        }
+    }
+
+    override fun visit(expr: Expr.Binary): Any {
         val left = evaluate(expr.left)
         val right = evaluate(expr.right)
         when (expr.operator.type) {
@@ -36,10 +51,10 @@ class Interpreter : Visitor<Any> {
                 return (left as Number).toDouble() <= (right as Number).toDouble()
             }
             BANG_EQUAL -> {
-                return !isEqual(left,right)
+                return left!=right
             }
             EQUAL_EQUAL -> {
-                return isEqual(left,right)
+                return left==right
             }
             MINUS -> {
                 checkOperandsType(expr.operator, Number::class.java, left, right)
@@ -66,15 +81,15 @@ class Interpreter : Visitor<Any> {
         return Nil
     }
 
-    override fun visit(expr: Grouping): Any {
+    override fun visit(expr: Expr.Grouping): Any {
         return evaluate(expr.expression)
     }
 
-    override fun visit(expr: Literal): Any {
+    override fun visit(expr: Expr.Literal): Any {
         return expr.value
     }
 
-    override fun visit(expr: Unary): Any {
+    override fun visit(expr: Expr.Unary): Any {
         val right = evaluate(expr.right)
         when (expr.operator.type) {
             BANG -> return !isTruthy(right)
@@ -87,13 +102,23 @@ class Interpreter : Visitor<Any> {
         return Nil
     }
 
+    override fun visit(expr: Expr.Variable): Any {
+        return environment.get(expr.name)
+    }
+
+    override fun visit(expr: Expr.Assign): Any {
+        val value = evaluate(expr.value)
+        environment.assign(expr.name, value)
+        return value
+    }
+
+    override fun visit(expr: Expr.Empty): Any {
+        return Nil
+    }
+
     private fun checkOperandsType(operator: Token, clazz: Class<*>, vararg operands: Any) {
         if (operands.all { operand -> clazz.isInstance(operand) }) return
         throw RuntimeError(operator, "Operand(s) must be ${clazz.simpleName}.")
-    }
-
-    override fun visit(expr: Empty): Any {
-        return Nil
     }
 
     private fun isTruthy(obj: Any): Boolean {
@@ -104,16 +129,37 @@ class Interpreter : Visitor<Any> {
         }
     }
 
-    private fun isEqual(a: Any, b: Any): Boolean {
-        // nil is only equal to nil.
-//        if (a === Nil && b === Nil) return true
-//        if (a === Nil || b === Nil) return false
-
-        return a == b
+    private fun evaluate(expr: Expr): Any {
+        return expr.accept(this)
     }
 
-    private fun evaluate(expr: Expression): Any {
-        return expr.accept(this)
+    override fun visit(stmt: Stmt.Block): Nil {
+        executeBlock(stmt.statements, Environment(environment))
+        return Nil
+    }
+
+    override fun visit(stmt: Stmt.Expression): Nil {
+        evaluate(stmt.expression)
+        return Nil
+    }
+
+    override fun visit(stmt: Stmt.Print): Nil {
+        val value = evaluate(stmt.expression)
+        println(value.toString())
+        return Nil
+    }
+
+    override fun visit(stmt: Stmt.Var): Nil {
+        var value: Any = Nil
+        if (stmt.initializer!=Expr.Empty) {
+            value = evaluate(stmt.initializer)
+        }
+        environment.define(stmt.name.lexeme, value)
+        return Nil
+    }
+
+    override fun visit(stmt: Stmt.Empty): Nil {
+        return Nil
     }
 }
 

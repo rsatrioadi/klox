@@ -1,10 +1,14 @@
 package me.sar.klox
 
-import me.sar.klox.Expression.*
+import me.sar.klox.Expr.*
 
 class AstPrinter : Visitor<String> {
-    fun print(expression: Expression): String {
-        return expression.accept(this)
+    fun print(expr: Expr): String {
+        return expr.accept(this)
+    }
+
+    override fun visit(expr: Assign): String {
+        TODO("Not yet implemented")
     }
 
     override fun visit(expr: Binary): String {
@@ -23,11 +27,15 @@ class AstPrinter : Visitor<String> {
         return parenthesize(expr.operator.lexeme, expr.right)
     }
 
+    override fun visit(expr: Variable): String {
+        TODO("Not yet implemented")
+    }
+
     override fun visit(expr: Empty): String {
         return ""
     }
 
-    private fun parenthesize(name: String, vararg expressions: Expression): String {
+    private fun parenthesize(name: String, vararg expressions: Expr): String {
         val builder = StringBuilder()
 
         builder.append("(").append(name)
