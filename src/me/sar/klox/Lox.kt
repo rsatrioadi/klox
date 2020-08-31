@@ -9,8 +9,8 @@ import kotlin.system.exitProcess
 
 object Lox {
 
-    var hadError = false
-    var hadRuntimeError = false
+    private var hadError = false
+    private var hadRuntimeError = false
 
     private val interpreter = Interpreter()
 

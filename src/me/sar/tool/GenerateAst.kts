@@ -5,6 +5,7 @@ val outputDir = "../klox"
 defineAst(outputDir, "Expr",
         "Assign = val name: Token, val value: Expr",
         "Binary = val left: Expr, val operator: Token, val right: Expr",
+        "Call = val callee: Expr, val paren: Token, val arguments: List<Expr>",
         "Grouping = val expression: Expr",
         "Literal = val value: Any",
         "Unary = val operator: Token, val right: Expr",
@@ -14,7 +15,8 @@ defineAst(outputDir, "Expr",
 defineAst(outputDir, "Stmt",
         "Block = val statements: List<Stmt>",
         "Expression = val expression: Expr",
-        "Print = val expression: Expr",
+        "Function = val name: Token, val params: List<Token>, val body: List<Stmt>",
+        "Return = val keyword: Token, val value: Expr",
         "Var = val name: Token, val initializer: Expr"
 )
 

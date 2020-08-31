@@ -3,9 +3,17 @@ package me.sar.klox
 import me.sar.klox.TokenType.*
 
 
-class Interpreter: Expr.Visitor<Any>, Stmt.Visitor<Nil> {
+class Interpreter : Expr.Visitor<Any>, Stmt.Visitor<Nil> {
 
-    private var environment = Environment()
+    private val globals = Environment()
+    private var environment = globals
+
+    init {
+        with(globals) {
+            define("clock", FnClock)
+            define("print", FnPrint)
+        }
+    }
 
     fun interpret(statements: List<Stmt>) {
         try {
@@ -19,7 +27,7 @@ class Interpreter: Expr.Visitor<Any>, Stmt.Visitor<Nil> {
         stmt.accept(this)
     }
 
-    private fun executeBlock(statements: List<Stmt>, environment: Environment) {
+    fun executeBlock(statements: List<Stmt>, environment: Environment) {
         val previous = this.environment
         try {
             this.environment = environment
@@ -51,34 +59,44 @@ class Interpreter: Expr.Visitor<Any>, Stmt.Visitor<Nil> {
                 return (left as Number).toDouble() <= (right as Number).toDouble()
             }
             BANG_EQUAL -> {
-                return left!=right
+                return left != right
             }
             EQUAL_EQUAL -> {
-                return left==right
+                return left == right
             }
             MINUS -> {
                 checkOperandsType(expr.operator, Number::class.java, left, right)
-                if (left is Long && right is Long) return left-right
+                if (left is Long && right is Long) return left - right
                 return (left as Number).toDouble() - (right as Number).toDouble()
             }
             SLASH -> {
                 checkOperandsType(expr.operator, Number::class.java, left, right)
-                if (left is Long && right is Long) return left/right
+                if (left is Long && right is Long) return left / right
                 return (left as Number).toDouble() / (right as Number).toDouble()
             }
             STAR -> {
                 checkOperandsType(expr.operator, Number::class.java, left, right)
-                if (left is Long && right is Long) return left*right
+                if (left is Long && right is Long) return left * right
                 return (left as Number).toDouble() * (right as Number).toDouble()
             }
             PLUS -> {
-                if (left is Long && right is Long) return left+right
+                if (left is Long && right is Long) return left + right
                 else if (left is Number && right is Number) return left.toDouble() + right.toDouble()
                 else if (left is String || right is String) return "${left}${right}"
                 throw RuntimeError(expr.operator, "Operands must be two numbers or at least one string.")
             }
         }
         return Nil
+    }
+
+    override fun visit(expr: Expr.Call): Any {
+        val callee = evaluate(expr.callee)
+        val arguments = expr.arguments.map { argument -> evaluate(argument) }.toTypedArray()
+        when {
+            callee !is LoxCallable -> throw RuntimeError(expr.paren, "Can only call functions and classes.")
+            arguments.size != callee.arity() -> throw RuntimeError(expr.paren, "Expected ${callee.arity()} arguments but got ${arguments.size}.")
+            else -> return callee.call(this, *arguments)
+        }
     }
 
     override fun visit(expr: Expr.Grouping): Any {
@@ -143,19 +161,24 @@ class Interpreter: Expr.Visitor<Any>, Stmt.Visitor<Nil> {
         return Nil
     }
 
-    override fun visit(stmt: Stmt.Print): Nil {
-        val value = evaluate(stmt.expression)
-        println(value.toString())
-        return Nil
-    }
-
     override fun visit(stmt: Stmt.Var): Nil {
         var value: Any = Nil
-        if (stmt.initializer!=Expr.Empty) {
+        if (stmt.initializer != Expr.Empty) {
             value = evaluate(stmt.initializer)
         }
         environment.define(stmt.name.lexeme, value)
         return Nil
+    }
+
+    override fun visit(stmt: Stmt.Function): Nil {
+        val function = LoxFunction(stmt, environment)
+        environment.define(stmt.name.lexeme, function)
+        return Nil
+    }
+
+    override fun visit(stmt: Stmt.Return): Nil {
+        val value = if (stmt.value != Expr.Empty) evaluate(stmt.value) else Nil
+        throw Return(value)
     }
 
     override fun visit(stmt: Stmt.Empty): Nil {
