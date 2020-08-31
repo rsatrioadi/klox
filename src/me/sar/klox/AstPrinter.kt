@@ -31,6 +31,10 @@ class AstPrinter : Visitor<String> {
         TODO("Not yet implemented")
     }
 
+    override fun visit(expr: Logical): String {
+        TODO("Not yet implemented")
+    }
+
     override fun visit(expr: Empty): String {
         return ""
     }

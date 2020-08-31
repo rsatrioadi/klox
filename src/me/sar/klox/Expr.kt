@@ -8,6 +8,7 @@ sealed class Expr {
         fun visit(expr: Binary): R
         fun visit(expr: Grouping): R
         fun visit(expr: Literal): R
+        fun visit(expr: Logical): R
         fun visit(expr: Unary): R
         fun visit(expr: Variable): R
         fun visit(expr: Empty): R
@@ -44,6 +45,16 @@ sealed class Expr {
 
     data class Literal(
             val value: Any
+    ): Expr() {
+        override fun <R> accept(visitor: Visitor<R>): R {
+            return visitor.visit(this)
+        }
+    }
+
+    data class Logical(
+            val left: Expr,
+            val operator: Token,
+            val right: Expr
     ): Expr() {
         override fun <R> accept(visitor: Visitor<R>): R {
             return visitor.visit(this)
