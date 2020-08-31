@@ -3,9 +3,6 @@ package me.sar.klox
 import me.sar.klox.Expr.*
 
 class AstPrinter : Visitor<String> {
-    fun print(expr: Expr): String {
-        return expr.accept(this)
-    }
 
     override fun visit(expr: Assign): String {
         TODO("Not yet implemented")
@@ -13,6 +10,10 @@ class AstPrinter : Visitor<String> {
 
     override fun visit(expr: Binary): String {
         return parenthesize(expr.operator.lexeme, expr.left, expr.right)
+    }
+
+    override fun visit(expr: Call): String {
+        TODO("Not yet implemented")
     }
 
     override fun visit(expr: Grouping): String {

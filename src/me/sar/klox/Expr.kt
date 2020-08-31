@@ -6,6 +6,7 @@ sealed class Expr {
     interface Visitor<R> {
         fun visit(expr: Assign): R
         fun visit(expr: Binary): R
+        fun visit(expr: Call): R
         fun visit(expr: Grouping): R
         fun visit(expr: Literal): R
         fun visit(expr: Logical): R
@@ -29,6 +30,16 @@ sealed class Expr {
             val left: Expr,
             val operator: Token,
             val right: Expr
+    ): Expr() {
+        override fun <R> accept(visitor: Visitor<R>): R {
+            return visitor.visit(this)
+        }
+    }
+
+    data class Call(
+            val callee: Expr,
+            val paren: Token,
+            val arguments: List<Expr>
     ): Expr() {
         override fun <R> accept(visitor: Visitor<R>): R {
             return visitor.visit(this)
