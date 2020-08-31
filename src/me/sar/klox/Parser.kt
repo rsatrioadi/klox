@@ -7,7 +7,7 @@ import kotlin.reflect.KFunction1
 class Parser(private val tokens: List<Token>) {
     private var current = 0
 
-    class ParseError: RuntimeException()
+    class ParseError : RuntimeException()
 
     fun parse(): List<Stmt> {
         val statements = mutableListOf<Stmt>()
@@ -37,19 +37,96 @@ class Parser(private val tokens: List<Token>) {
     private fun varDeclaration(): Stmt {
         // rule: varDeclaration -> "var" IDENTIFIER ( "=" expression )? ";" ;
         val name = consume(IDENTIFIER, "Expect variable name.")
-        var initializer: Expr = Expr.Empty
-        if (match(EQUAL)) {
-            initializer = expression()
-        }
+        val initializer = if (match(EQUAL)) expression() else Expr.Empty
         consume(SEMICOLON, "Expect ';' after variable declaration.")
         return Stmt.Var(name, initializer)
     }
 
     private fun statement(): Stmt {
-        // rule: statement -> printStatement | expressionStatement | block ;
+        // rule: statement -> expressionStatement
+        //          | forStatement
+        //          | ifStatement
+        //          | printStatement
+        //          | whileStatement
+        //          | block ;
+        if (match(FOR)) return forStatement()
+        if (match(IF)) return ifStatement()
         if (match(PRINT)) return printStatement()
+        if (match(WHILE)) return whileStatement()
         if (match(LEFT_BRACE)) return Stmt.Block(block())
         return expressionStatement()
+    }
+
+    private fun forStatement(): Stmt {
+        // rule: forStmt -> "for" "(" ( varDeclaration | expressionStatement | ";" )
+        //                            expression? ";"
+        //                            expression? ")" statement ;
+        consume(LEFT_PAREN, "Expect '(' after 'for'.")
+
+        val initializer: Stmt = when {
+            match(SEMICOLON) -> Stmt.Empty
+            match(VAR) -> varDeclaration()
+            else -> expressionStatement()
+        }
+
+        val condition: Expr = when {
+            !check(SEMICOLON) -> expression()
+            else -> Expr.Literal(true)
+        }
+        consume(SEMICOLON, "Expect ';' after loop condition.")
+
+        val increment: Expr = when {
+            !check(RIGHT_PAREN) -> expression()
+            else -> Expr.Empty
+        }
+        consume(RIGHT_PAREN, "Expect ')' after for clause.")
+
+        val body: Stmt = bodyWithInitializer(
+                initializer,
+                Stmt.While(
+                        condition,
+                        bodyWithFinalizer(
+                                statement(),
+                                Stmt.Expression(increment)
+                        )
+                )
+        )
+
+        return body
+    }
+
+    private fun bodyWithInitializer(initializer: Stmt, body: Stmt): Stmt {
+        return when {
+            initializer != Stmt.Empty -> Stmt.Block(listOf(initializer, body))
+            else -> body
+        }
+    }
+
+    private fun bodyWithFinalizer(body: Stmt, finalizer: Stmt): Stmt {
+        return when {
+            finalizer != Stmt.Empty -> Stmt.Block(listOf(body, finalizer))
+            else -> body
+        }
+    }
+
+    private fun ifStatement(): Stmt {
+        // rule: ifStmt -> "if" "(" expression ")" statement ( "else" statement )? ;
+        consume(LEFT_PAREN, "Expect '(' after 'if'.")
+        val condition = expression()
+        consume(RIGHT_PAREN, "Expect ')' after if condition.")
+        val thenBranch = statement()
+        val elseBranch = if (match(ELSE)) statement() else Stmt.Empty
+        return Stmt.If(condition, thenBranch, elseBranch)
+    }
+
+    private fun whileStatement(): Stmt {
+        // rule: whileStmt -> "while" "(" expression ")" statement ;
+        consume(LEFT_PAREN, "Expect '(' after 'while'.")
+        val condition = expression()
+        consume(RIGHT_PAREN, "Expect ')' after while condition.")
+        val body = statement()
+
+        return Stmt.While(condition, body)
     }
 
     private fun block(): List<Stmt> {
@@ -82,10 +159,10 @@ class Parser(private val tokens: List<Token>) {
     }
 
     private fun assignment(): Expr {
-        // rule: assignment -> IDENTIFIER "=" assignment | equality ;
+        // rule: assignment -> IDENTIFIER "=" assignment | logic_or ;
 
-        // equality
-        val expr = equality()
+        // logic_or
+        val expr = or()
 
         // IDENTIFIER "=" assignment
         if (match(EQUAL)) {
@@ -99,6 +176,18 @@ class Parser(private val tokens: List<Token>) {
             error(equals, "Invalid assignment target.")
         }
         return expr
+    }
+
+    private fun or(): Expr {
+        // rule: logic_or -> logic_and ( "or" logic_and )* ;
+        return shortCircuitLogical(Parser::and,
+                OR)
+    }
+
+    private fun and(): Expr {
+        // rule: logic_and -> equality ( "and" equality )* ;
+        return shortCircuitLogical(Parser::equality,
+                AND)
     }
 
     private fun equality(): Expr {
@@ -174,7 +263,7 @@ class Parser(private val tokens: List<Token>) {
     private fun leftAssociativeBinary(operation: KFunction1<Parser, Expr>, vararg operators: TokenType): Expr {
         // "some clever Java 8" (as Nystrom called it) but in Kotlin
         // rule: leftAssociativeBinary -> operation ( ( *operators ) operation )* ;
-        // where *operators expands to operators[0] | operators[1] | ...
+        // where ( *operators ) expands to ( operators[0] | operators[1] | ... )
 
         // operation
         var expr = operation.invoke(this)
@@ -184,6 +273,23 @@ class Parser(private val tokens: List<Token>) {
             val operator = previous()
             val right = operation.invoke(this)
             expr = Expr.Binary(expr, operator, right)
+        }
+
+        return expr
+    }
+
+    private fun shortCircuitLogical(operation: KFunction1<Parser, Expr>, vararg operators: TokenType): Expr {
+        // rule: logical -> operation ( ( *operators ) operation )* ;
+        // where *operators expands to operators[0] | operators[1] | ...
+
+        // operation
+        var expr = operation.invoke(this)
+
+        // ( ( *operators ) operation )*
+        while (match(*operators)) {
+            val operator = previous()
+            val right = operation.invoke(this)
+            expr = Expr.Logical(expr, operator, right)
         }
 
         return expr
