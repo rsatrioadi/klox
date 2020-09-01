@@ -7,6 +7,7 @@ class Interpreter : Expr.Visitor<Any>, Stmt.Visitor<Nil> {
 
     private val globals = Environment()
     private var environment = globals
+    private val locals = mutableMapOf<Expr, Int>()
 
     init {
         with(globals) {
@@ -17,7 +18,7 @@ class Interpreter : Expr.Visitor<Any>, Stmt.Visitor<Nil> {
 
     fun interpret(statements: List<Stmt>) {
         try {
-            statements.forEach { statement -> execute(statement) }
+            statements.forEach { execute(it) }
         } catch (error: RuntimeError) {
             Lox.runtimeError(error)
         }
@@ -32,10 +33,14 @@ class Interpreter : Expr.Visitor<Any>, Stmt.Visitor<Nil> {
         try {
             this.environment = environment
 
-            statements.forEach { statement -> execute(statement) }
+            statements.forEach { execute(it) }
         } finally {
             this.environment = previous
         }
+    }
+
+    fun resolve(expr: Expr, depth: Int) {
+        locals[expr] = depth
     }
 
     override fun visit(expr: Expr.Binary): Any {
@@ -91,7 +96,7 @@ class Interpreter : Expr.Visitor<Any>, Stmt.Visitor<Nil> {
 
     override fun visit(expr: Expr.Call): Any {
         val callee = evaluate(expr.callee)
-        val arguments = expr.arguments.map { argument -> evaluate(argument) }.toTypedArray()
+        val arguments = expr.arguments.map { evaluate(it) }.toTypedArray()
         when {
             callee !is LoxCallable -> throw RuntimeError(expr.paren, "Can only call functions and classes.")
             arguments.size != callee.arity() -> throw RuntimeError(expr.paren, "Expected ${callee.arity()} arguments but got ${arguments.size}.")
@@ -133,12 +138,24 @@ class Interpreter : Expr.Visitor<Any>, Stmt.Visitor<Nil> {
     }
 
     override fun visit(expr: Expr.Variable): Any {
-        return environment.get(expr.name)
+        return lookupVariable(expr.name, expr)
+    }
+
+    private fun lookupVariable(name: Token, expr: Expr): Any {
+        val distance = locals[expr]
+        return when {
+            distance!=null -> environment.getAt(distance, name.lexeme)
+            else -> globals.get(name)
+        }
     }
 
     override fun visit(expr: Expr.Assign): Any {
         val value = evaluate(expr.value)
-        environment.assign(expr.name, value)
+        val distance = locals[expr]
+        when {
+            distance!=null -> environment.assignAt(distance, expr.name, value)
+            else -> globals.assign(expr.name, value)
+        }
         return value
     }
 
@@ -147,7 +164,7 @@ class Interpreter : Expr.Visitor<Any>, Stmt.Visitor<Nil> {
     }
 
     private fun checkOperandsType(operator: Token, clazz: Class<*>, vararg operands: Any) {
-        if (operands.all { operand -> clazz.isInstance(operand) }) return
+        if (operands.all { clazz.isInstance(it) }) return
         throw RuntimeError(operator, "Operand(s) must be ${clazz.simpleName}.")
     }
 
@@ -183,10 +200,7 @@ class Interpreter : Expr.Visitor<Any>, Stmt.Visitor<Nil> {
     }
 
     override fun visit(stmt: Stmt.Var): Nil {
-        var value: Any = Nil
-        if (stmt.initializer != Expr.Empty) {
-            value = evaluate(stmt.initializer)
-        }
+        var value = evaluate(stmt.initializer)
         environment.define(stmt.name.lexeme, value)
         return Nil
     }
@@ -205,7 +219,7 @@ class Interpreter : Expr.Visitor<Any>, Stmt.Visitor<Nil> {
     }
 
     override fun visit(stmt: Stmt.Return): Nil {
-        val value = if (stmt.value != Expr.Empty) evaluate(stmt.value) else Nil
+        val value = evaluate(stmt.value)
         throw Return(value)
     }
 

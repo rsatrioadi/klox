@@ -42,6 +42,11 @@ object Lox {
         // Stop if there was a syntax error.
         if (hadError) return
 
+        Resolver(interpreter).resolve(statements)
+
+        // Stop if there was a resolution error.
+        if (hadError) return
+
         interpreter.interpret(statements)
     }
 
