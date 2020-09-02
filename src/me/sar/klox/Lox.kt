@@ -50,16 +50,11 @@ object Lox {
         interpreter.interpret(statements)
     }
 
-    fun error(line: Int, message: String) {
-        report(line, "", message)
-    }
+    fun error(line: Int, message: String) = report(line, "", message)
 
-    fun error(token: Token, message: String) {
-        if (token.type === TokenType.EOF) {
-            report(token.line, " at end", message)
-        } else {
-            report(token.line, " at '${token.lexeme}'", message)
-        }
+    fun error(token: Token, message: String) = when {
+        token.type === TokenType.EOF -> report(token.line, " at end", message)
+        else -> report(token.line, " at '${token.lexeme}'", message)
     }
 
     fun runtimeError(error: RuntimeError) {
@@ -73,17 +68,8 @@ object Lox {
     }
 }
 
-fun main(args: Array<String>) {
-    when {
-        args.size>1 -> {
-            println("Usage: klox [script]")
-            exitProcess(64)
-        }
-        args.size==1 -> {
-            Lox.runFile(args[0])
-        }
-        else -> {
-            Lox.runPrompt()
-        }
-    }
+fun main(args: Array<String>) = when {
+    args.size>1 -> { println("Usage: klox [script]"); exitProcess(64) }
+    args.size==1 -> Lox.runFile(args[0])
+    else -> Lox.runPrompt()
 }

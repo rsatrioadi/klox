@@ -44,7 +44,7 @@ class AstPrinter : Visitor<String> {
         val builder = StringBuilder()
 
         builder.append("(").append(name)
-        for (expr in expressions) {
+        expressions.forEach { expr ->
             builder.append(" ")
             builder.append(expr.accept(this))
         }

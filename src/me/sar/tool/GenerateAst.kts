@@ -38,7 +38,7 @@ fun defineAst(outputDir: String, baseName: String, vararg types: String) {
     writer.println()
     writer.println("    abstract fun <R> accept(visitor: Visitor<R>): R")
     writer.println()
-    for (type in types) {
+    types.forEach { type ->
         val split = type.split("=".toRegex())
         val className = split[0].trim()
         val fields = split[1].trim()
@@ -70,10 +70,9 @@ fun defineEmpty(writer: PrintWriter, baseName: String) {
 
 fun defineVisitor(writer: PrintWriter, baseName: String, vararg types: String) {
     writer.println("    interface Visitor<R> {")
-    for (type in types) {
-        val typeName = type.split("=".toRegex()).toTypedArray()[0].trim()
-        writer.println("        fun visit(${baseName.toLowerCase()}: $typeName): R")
-    }
+    types
+            .map { it.split("=".toRegex()).toTypedArray()[0].trim() }
+            .forEach { writer.println("        fun visit(${baseName.toLowerCase()}: $it): R") }
     writer.println("        fun visit(${baseName.toLowerCase()}: Empty): R")
     writer.println("    }")
 }

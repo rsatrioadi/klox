@@ -16,12 +16,10 @@ class Interpreter : Expr.Visitor<Any>, Stmt.Visitor<Nil> {
         }
     }
 
-    fun interpret(statements: List<Stmt>) {
-        try {
-            statements.forEach { execute(it) }
-        } catch (error: RuntimeError) {
-            Lox.runtimeError(error)
-        }
+    fun interpret(statements: List<Stmt>) = try {
+        statements.forEach { execute(it) }
+    } catch (error: RuntimeError) {
+        Lox.runtimeError(error)
     }
 
     private fun execute(stmt: Stmt) {
@@ -32,7 +30,6 @@ class Interpreter : Expr.Visitor<Any>, Stmt.Visitor<Nil> {
         val previous = this.environment
         try {
             this.environment = environment
-
             statements.forEach { execute(it) }
         } finally {
             this.environment = previous
@@ -71,8 +68,10 @@ class Interpreter : Expr.Visitor<Any>, Stmt.Visitor<Nil> {
             }
             MINUS -> {
                 checkOperandsType(expr.operator, Number::class.java, left, right)
-                if (left is Long && right is Long) return left - right
-                return (left as Number).toDouble() - (right as Number).toDouble()
+                return when {
+                    left is Long && right is Long -> left - right
+                    else -> (left as Number).toDouble() - (right as Number).toDouble()
+                }
             }
             SLASH -> {
                 checkOperandsType(expr.operator, Number::class.java, left, right)
@@ -81,14 +80,18 @@ class Interpreter : Expr.Visitor<Any>, Stmt.Visitor<Nil> {
             }
             STAR -> {
                 checkOperandsType(expr.operator, Number::class.java, left, right)
-                if (left is Long && right is Long) return left * right
-                return (left as Number).toDouble() * (right as Number).toDouble()
+                return when {
+                    left is Long && right is Long -> left * right
+                    else -> (left as Number).toDouble() * (right as Number).toDouble()
+                }
             }
             PLUS -> {
-                if (left is Long && right is Long) return left + right
-                else if (left is Number && right is Number) return left.toDouble() + right.toDouble()
-                else if (left is String || right is String) return "${left}${right}"
-                throw RuntimeError(expr.operator, "Operands must be two numbers or at least one string.")
+                return when {
+                    left is Long && right is Long -> left + right
+                    left is Number && right is Number -> left.toDouble() + right.toDouble()
+                    left is String || right is String -> "${left}${right}"
+                    else -> throw RuntimeError(expr.operator, "Operands must be two numbers or at least one string.")
+                }
             }
         }
         return Nil
@@ -104,21 +107,16 @@ class Interpreter : Expr.Visitor<Any>, Stmt.Visitor<Nil> {
         }
     }
 
-    override fun visit(expr: Expr.Grouping): Any {
-        return evaluate(expr.expression)
-    }
+    override fun visit(expr: Expr.Grouping): Any = evaluate(expr.expression)
 
-    override fun visit(expr: Expr.Literal): Any {
-        return expr.value
-    }
+    override fun visit(expr: Expr.Literal): Any = expr.value
 
     override fun visit(expr: Expr.Logical): Any {
         val left = evaluate(expr.left)
 
-        if (expr.operator.type == OR) {
-            if (isTruthy(left)) return left
-        } else { /* expr.operator.type == AND */
-            if (!isTruthy(left)) return left
+        when (expr.operator.type) {
+            OR -> if (isTruthy(left)) return left
+            AND -> if (!isTruthy(left)) return left
         }
 
         return evaluate(expr.right)
@@ -130,21 +128,22 @@ class Interpreter : Expr.Visitor<Any>, Stmt.Visitor<Nil> {
             BANG -> return !isTruthy(right)
             MINUS -> {
                 checkOperandsType(expr.operator, Number::class.java, right)
-                return if (right is Double) -right else -(right as Long)
+                return when (right) {
+                    is Double -> -right
+                    else -> -(right as Long)
+                }
             }
         }
 
         return Nil
     }
 
-    override fun visit(expr: Expr.Variable): Any {
-        return lookupVariable(expr.name, expr)
-    }
+    override fun visit(expr: Expr.Variable): Any = lookupVariable(expr.name, expr)
 
     private fun lookupVariable(name: Token, expr: Expr): Any {
         val distance = locals[expr]
         return when {
-            distance!=null -> environment.getAt(distance, name.lexeme)
+            distance != null -> environment.getAt(distance, name.lexeme)
             else -> globals.get(name)
         }
     }
@@ -153,32 +152,28 @@ class Interpreter : Expr.Visitor<Any>, Stmt.Visitor<Nil> {
         val value = evaluate(expr.value)
         val distance = locals[expr]
         when {
-            distance!=null -> environment.assignAt(distance, expr.name, value)
+            distance != null -> environment.assignAt(distance, expr.name, value)
             else -> globals.assign(expr.name, value)
         }
         return value
     }
 
-    override fun visit(expr: Expr.Empty): Any {
-        return Nil
-    }
+    override fun visit(expr: Expr.Empty): Any = Nil
 
     private fun checkOperandsType(operator: Token, clazz: Class<*>, vararg operands: Any) {
-        if (operands.all { clazz.isInstance(it) }) return
-        throw RuntimeError(operator, "Operand(s) must be ${clazz.simpleName}.")
-    }
-
-    private fun isTruthy(obj: Any): Boolean {
-        return when (obj) {
-            Nil -> false
-            is Boolean -> obj
-            else -> true
+        when {
+            operands.all { clazz.isInstance(it) } -> return
+            else -> throw RuntimeError(operator, "Operand(s) must be ${clazz.simpleName}.")
         }
     }
 
-    private fun evaluate(expr: Expr): Any {
-        return expr.accept(this)
+    private fun isTruthy(obj: Any): Boolean = when (obj) {
+        Nil -> false
+        is Boolean -> obj
+        else -> true
     }
+
+    private fun evaluate(expr: Expr): Any = expr.accept(this)
 
     override fun visit(stmt: Stmt.Block): Nil {
         executeBlock(stmt.statements, Environment(environment))
@@ -191,10 +186,9 @@ class Interpreter : Expr.Visitor<Any>, Stmt.Visitor<Nil> {
     }
 
     override fun visit(stmt: Stmt.If): Nil {
-        if (isTruthy(evaluate(stmt.condition))) {
-            execute(stmt.thenBranch)
-        } else {
-            execute(stmt.elseBranch)
+        when {
+            isTruthy(evaluate(stmt.condition)) -> execute(stmt.thenBranch)
+            else -> execute(stmt.elseBranch)
         }
         return Nil
     }
@@ -218,13 +212,7 @@ class Interpreter : Expr.Visitor<Any>, Stmt.Visitor<Nil> {
         return Nil
     }
 
-    override fun visit(stmt: Stmt.Return): Nil {
-        val value = evaluate(stmt.value)
-        throw Return(value)
-    }
+    override fun visit(stmt: Stmt.Return): Nil = throw Return(evaluate(stmt.value))
 
-    override fun visit(stmt: Stmt.Empty): Nil {
-        return Nil
-    }
+    override fun visit(stmt: Stmt.Empty): Nil = Nil
 }
-

@@ -40,9 +40,7 @@ internal class Scanner(private val source: String) {
         return tokens.toList()
     }
 
-    private fun isAtEnd(): Boolean {
-        return current >= source.length
-    }
+    private fun isAtEnd(): Boolean = current >= source.length
 
     private fun scanToken() {
         when (val c = advance()) {
@@ -60,34 +58,19 @@ internal class Scanner(private val source: String) {
             '=' -> addToken(if (match('=')) EQUAL_EQUAL else EQUAL)
             '<' -> addToken(if (match('=')) LESS_EQUAL else LESS)
             '>' -> addToken(if (match('=')) GREATER_EQUAL else GREATER)
-            '/' -> {
-                if (match('/')) {
-                    while (peek() != '\n' && !isAtEnd()) {
-                        advance()
-                    }
-                } else {
-                    addToken(SLASH)
-                }
+            '/' -> when {
+                match('/') -> while (peek() != '\n' && !isAtEnd()) advance()
+                else -> addToken(SLASH)
             }
             ' ', '\r', '\t' -> {
                 // ignore
             }
-            '\n' -> {
-                line++
-            }
+            '\n' -> line++
             '"' -> string()
-            else -> {
-                when {
-                    c.isDigit() -> {
-                        number()
-                    }
-                    c.isLetter() -> {
-                        identifier()
-                    }
-                    else -> {
-                        Lox.error(line, "Unexpected character.")
-                    }
-                }
+            else -> when {
+                c.isDigit() -> number()
+                c.isLetter() -> identifier()
+                else -> Lox.error(line, "Unexpected character.")
             }
         }
     }
@@ -113,41 +96,35 @@ internal class Scanner(private val source: String) {
         }
 
         val text = source.substring(start, current)
-        if (text.contains('.')) {
-            addToken(REAL, text.toDouble())
-        } else {
-            addToken(INTEGER, text.toLong())
+        when {
+            text.contains('.') -> addToken(REAL, text.toDouble())
+            else -> addToken(INTEGER, text.toLong())
         }
     }
 
-    private fun advance(): Char {
-        current++
-        return source[current - 1]
-    }
+    private fun advance(): Char = source[current++]
 
     private fun addToken(type: TokenType, literal: Any) {
         val text = source.substring(start, current)
         tokens.add(Token(type, text, literal, line))
     }
 
-    private fun addToken(type: TokenType) {
-        addToken(type, type)
+    private fun addToken(type: TokenType) = addToken(type, type)
+
+    private fun match(expected: Char): Boolean = when {
+        isAtEnd() -> false
+        source[current] != expected -> false
+        else -> { current++; true }
     }
 
-    private fun match(expected: Char): Boolean {
-        if (isAtEnd()) return false
-        if (source[current] != expected) return false
-        current++
-        return true
+    private fun peek(): Char = when {
+        isAtEnd() -> '\u0000'
+        else -> source[current]
     }
 
-    private fun peek(): Char {
-        return if (isAtEnd()) '\u0000' else source[current]
-    }
-
-    private fun peekNext(): Char {
-        if (current + 1 >= source.length) return '\u0000'
-        return source[current + 1]
+    private fun peekNext(): Char = when {
+        current + 1 >= source.length -> '\u0000'
+        else -> source[current + 1]
     }
 
     private fun string() {
@@ -178,7 +155,5 @@ internal class Scanner(private val source: String) {
         addToken(STRING, value)
     }
 
-    private fun Char.isValidIdentifier(): Boolean {
-        return this.isLetter() || this == '_'
-    }
+    private fun Char.isValidIdentifier(): Boolean = this.isLetter() || this == '_'
 }

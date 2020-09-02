@@ -7,9 +7,7 @@ class Resolver(private val interpreter: Interpreter) : Expr.Visitor<Unit>, Stmt.
     private val scopes = Stack<MutableMap<String, Boolean>>()
     private var currentFunction: FunctionType = FunctionType.NONE
 
-    enum class FunctionType {
-        NONE, FUNCTION
-    }
+    enum class FunctionType { NONE, FUNCTION }
 
     override fun visit(expr: Expr.Assign) {
         resolve(expr.value)
@@ -26,15 +24,11 @@ class Resolver(private val interpreter: Interpreter) : Expr.Visitor<Unit>, Stmt.
         expr.arguments.forEach { resolve(it) }
     }
 
-    override fun visit(expr: Expr.Grouping) {
-        resolve(expr.expression)
-    }
+    override fun visit(expr: Expr.Grouping) = resolve(expr.expression)
 
-    override fun visit(expr: Expr.Literal) {}
+    override fun visit(expr: Expr.Literal) = Unit
 
-    override fun visit(expr: Expr.Unary) {
-        resolve(expr.right)
-    }
+    override fun visit(expr: Expr.Unary) = resolve(expr.right)
 
     override fun visit(expr: Expr.Variable) {
         if (!scopes.empty() && scopes.peek()[expr.name.lexeme] == false) {
@@ -48,7 +42,7 @@ class Resolver(private val interpreter: Interpreter) : Expr.Visitor<Unit>, Stmt.
         resolve(expr.right)
     }
 
-    override fun visit(expr: Expr.Empty) {}
+    override fun visit(expr: Expr.Empty) = Unit
 
     override fun visit(stmt: Stmt.Block) {
         beginScope()
@@ -56,9 +50,7 @@ class Resolver(private val interpreter: Interpreter) : Expr.Visitor<Unit>, Stmt.
         endScope()
     }
 
-    override fun visit(stmt: Stmt.Expression) {
-        resolve(stmt.expression)
-    }
+    override fun visit(stmt: Stmt.Expression) = resolve(stmt.expression)
 
     override fun visit(stmt: Stmt.Function) {
         declare(stmt.name)
@@ -92,27 +84,17 @@ class Resolver(private val interpreter: Interpreter) : Expr.Visitor<Unit>, Stmt.
         resolve(stmt.body)
     }
 
-    override fun visit(stmt: Stmt.Empty) {}
+    override fun visit(stmt: Stmt.Empty) = Unit
 
-    private fun beginScope() {
-        scopes.push(mutableMapOf())
-    }
+    private fun beginScope() = scopes.push(mutableMapOf())
 
-    private fun endScope() {
-        scopes.pop()
-    }
+    private fun endScope() = scopes.pop()
 
-    fun resolve(statements: List<Stmt>) {
-        statements.forEach { resolve(it) }
-    }
+    fun resolve(statements: List<Stmt>) = statements.forEach { resolve(it) }
 
-    private fun resolve(stmt: Stmt) {
-        stmt.accept(this)
-    }
+    private fun resolve(stmt: Stmt) = stmt.accept(this)
 
-    private fun resolve(expr: Expr) {
-        expr.accept(this)
-    }
+    private fun resolve(expr: Expr) = expr.accept(this)
 
     private fun resolveLocal(expr: Expr, name: Token) {
         val i = scopes.indexOfLast { it.containsKey(name.lexeme) }
