@@ -7,9 +7,12 @@ sealed class Expr {
         fun visit(expr: Assign): R
         fun visit(expr: Binary): R
         fun visit(expr: Call): R
+        fun visit(expr: Get): R
         fun visit(expr: Grouping): R
         fun visit(expr: Literal): R
         fun visit(expr: Logical): R
+        fun visit(expr: Set): R
+        fun visit(expr: This): R
         fun visit(expr: Unary): R
         fun visit(expr: Variable): R
         fun visit(expr: Empty): R
@@ -46,6 +49,15 @@ sealed class Expr {
         }
     }
 
+    data class Get(
+            val objekt: Expr,
+            val name: Token
+    ): Expr() {
+        override fun <R> accept(visitor: Visitor<R>): R {
+            return visitor.visit(this)
+        }
+    }
+
     data class Grouping(
             val expression: Expr
     ): Expr() {
@@ -66,6 +78,24 @@ sealed class Expr {
             val left: Expr,
             val operator: Token,
             val right: Expr
+    ): Expr() {
+        override fun <R> accept(visitor: Visitor<R>): R {
+            return visitor.visit(this)
+        }
+    }
+
+    data class Set(
+            val objekt: Expr,
+            val name: Token,
+            val value: Expr
+    ): Expr() {
+        override fun <R> accept(visitor: Visitor<R>): R {
+            return visitor.visit(this)
+        }
+    }
+
+    data class This(
+            val keyword: Token
     ): Expr() {
         override fun <R> accept(visitor: Visitor<R>): R {
             return visitor.visit(this)

@@ -18,26 +18,36 @@ class Parser(private val tokens: List<Token>) {
         return statements.toList()
     }
 
-    private fun declaration(): Stmt {
-        // rule: declaration -> functionDeclaration | varDeclaration | statement ;
-        try {
+    private fun declaration(): Stmt = try {
+        // rule: declaration -> classDeclaration | functionDeclaration | varDeclaration | statement ;
 
-            // functionDeclaration
-            if (match(FUN)) return function("function")
-
-            // varDeclaration
-            if (match(VAR)) return varDeclaration()
-
-            // statement
-            return statement()
-
-        } catch (e: ParseError) {
-            synchronize()
-            return Stmt.Empty
+        when {
+            match(CLASS) -> classDeclaration()
+            match(FUN) -> function("function")
+            match(VAR) -> varDeclaration()
+            else -> statement()
         }
+    } catch (e: ParseError) {
+        synchronize()
+        Stmt.Empty
+    }
+
+    private fun classDeclaration(): Stmt {
+        // rule: classDeclaration -> "class" IDENTIFIER "{" function* "}" ;
+        val name = consume(IDENTIFIER, "Expect class name.")
+        consume(LEFT_BRACE, "Expect '{' before class body.")
+        val methods = mutableListOf<Stmt.Function>()
+        while (!check(RIGHT_BRACE) && !isAtEnd()) {
+            methods.add(function("method"))
+        }
+        consume(RIGHT_BRACE, "Expect '}' after class body.")
+        return Stmt.Class(name, methods)
     }
 
     private fun function(kind: String): Stmt.Function {
+        // rules:
+        //    function -> IDENTIFIER "(" parameters? ")" block ;
+        //    parameters -> IDENTIFIER ( "," IDENTIFIER )* ;
         val name = consume(IDENTIFIER, "Expect $kind name.")
         consume(LEFT_PAREN, "Expect '(' after $kind name.")
         val parameters = mutableListOf<Token>()
@@ -183,7 +193,8 @@ class Parser(private val tokens: List<Token>) {
     private fun expression(): Expr = assignment() // rule: expression -> assignment ;
 
     private fun assignment(): Expr {
-        // rule: assignment -> IDENTIFIER "=" assignment | logic_or ;
+        // rule: assignment -> ( call "." )? IDENTIFIER "=" assignment
+        //           | logic_or ;
 
         // logic_or
         val expr = or()
@@ -193,11 +204,11 @@ class Parser(private val tokens: List<Token>) {
             val equals = previous()
             val value = assignment() // recursive call since assignment() is right-associative
 
-            if (expr is Expr.Variable) {
-                val name = expr.name
-                return Expr.Assign(name, value)
+            when (expr) {
+                is Expr.Variable -> return Expr.Assign(expr.name, value)
+                is Expr.Get -> return Expr.Set(expr.objekt, expr.name, value)
+                else -> error(equals, "Invalid assignment target.")
             }
-            error(equals, "Invalid assignment target.")
         }
         return expr
     }
@@ -230,13 +241,17 @@ class Parser(private val tokens: List<Token>) {
     }
 
     private fun call(): Expr {
-        // rule: call -> primary ( "(" arguments? ")" )* ;
+        // rule: call -> primary ( "(" arguments? ")" | "." IDENTIFIER )* ;
 
         var expr = primary()
 
         loop@ while(true) {
-            when {
-                match(LEFT_PAREN) -> expr = finishCall(expr)
+            expr = when {
+                match(LEFT_PAREN) -> finishCall(expr)
+                match(DOT) -> {
+                    val name = consume(IDENTIFIER, "Expect property name after '.'.")
+                    Expr.Get(expr, name)
+                }
                 else -> break@loop
             }
         }
@@ -261,9 +276,10 @@ class Parser(private val tokens: List<Token>) {
     }
 
     private fun primary(): Expr = when {
-        // rule: primary -> INTEGER | REAL | STRING | IDENTIFIER | "false" | "true" | "nil" | "(" expression ")" ;
+        // rule: primary -> INTEGER | REAL | STRING | THIS | IDENTIFIER | "false" | "true" | "nil" | "(" expression ")" ;
 
         match(INTEGER, REAL, STRING) -> Expr.Literal(previous().literal)
+        match(THIS) -> Expr.This(previous())
         match(IDENTIFIER) -> Expr.Variable(previous())
         match(FALSE) -> Expr.Literal(false)
         match(TRUE) -> Expr.Literal(true)

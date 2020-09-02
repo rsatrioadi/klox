@@ -4,10 +4,13 @@ import java.util.*
 import kotlin.system.exitProcess
 
 class Resolver(private val interpreter: Interpreter) : Expr.Visitor<Unit>, Stmt.Visitor<Unit> {
+
     private val scopes = Stack<MutableMap<String, Boolean>>()
     private var currentFunction: FunctionType = FunctionType.NONE
+    private var currentClass: ClassType = ClassType.NONE
 
-    enum class FunctionType { NONE, FUNCTION }
+    enum class FunctionType { NONE, FUNCTION, INITIALIZER, METHOD }
+    enum class ClassType { NONE, CLASS }
 
     override fun visit(expr: Expr.Assign) {
         resolve(expr.value)
@@ -23,6 +26,8 @@ class Resolver(private val interpreter: Interpreter) : Expr.Visitor<Unit>, Stmt.
         resolve(expr.callee)
         expr.arguments.forEach { resolve(it) }
     }
+
+    override fun visit(expr: Expr.Get) = resolve(expr.objekt)
 
     override fun visit(expr: Expr.Grouping) = resolve(expr.expression)
 
@@ -42,6 +47,18 @@ class Resolver(private val interpreter: Interpreter) : Expr.Visitor<Unit>, Stmt.
         resolve(expr.right)
     }
 
+    override fun visit(expr: Expr.Set) {
+        resolve(expr.value)
+        resolve(expr.objekt)
+    }
+
+    override fun visit(expr: Expr.This) {
+        if (currentClass == ClassType.NONE) {
+            Lox.error(expr.keyword, "Cannot use 'this' outside of a class.")
+        }
+        resolveLocal(expr, expr.keyword)
+    }
+
     override fun visit(expr: Expr.Empty) = Unit
 
     override fun visit(stmt: Stmt.Block) {
@@ -52,19 +69,42 @@ class Resolver(private val interpreter: Interpreter) : Expr.Visitor<Unit>, Stmt.
 
     override fun visit(stmt: Stmt.Expression) = resolve(stmt.expression)
 
+    override fun visit(stmt: Stmt.Class) {
+        val enclosingClass = currentClass
+        currentClass = ClassType.CLASS
+
+        declare(stmt.name)
+        define(stmt.name)
+
+        beginScope()
+        scopes.peek()["this"] = true
+
+        stmt.methods.forEach { resolveFunction(it, when (it.name.lexeme) {
+            "init" -> FunctionType.FUNCTION
+            else -> FunctionType.METHOD
+        }) }
+
+        endScope()
+
+        currentClass = enclosingClass
+    }
+
     override fun visit(stmt: Stmt.Function) {
         declare(stmt.name)
         define(stmt.name)
         resolveFunction(stmt, FunctionType.FUNCTION)
     }
 
-    override fun visit(stmt: Stmt.Return) {
-        if (currentFunction == FunctionType.NONE) {
+    override fun visit(stmt: Stmt.Return) = when (currentFunction) {
+        FunctionType.NONE -> {
             val exitCode = stmt.value.accept(interpreter)
-            if (exitCode is Number) exitProcess(exitCode.toInt())
-            else Lox.error(stmt.keyword, "Return from top-level code only accepts Numbers.")
+            when (exitCode) {
+                is Number -> exitProcess(exitCode.toInt())
+                else -> Lox.error(stmt.keyword, "Return from top-level code only accepts Numbers.")
+            }
         }
-        resolve(stmt.value)
+        FunctionType.INITIALIZER -> Lox.error(stmt.keyword, "Cannot return a value from an initializer.")
+        else -> resolve(stmt.value)
     }
 
     override fun visit(stmt: Stmt.Var) {

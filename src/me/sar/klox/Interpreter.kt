@@ -75,8 +75,10 @@ class Interpreter : Expr.Visitor<Any>, Stmt.Visitor<Nil> {
             }
             SLASH -> {
                 checkOperandsType(expr.operator, Number::class.java, left, right)
-                if (left is Long && right is Long) return left / right
-                return (left as Number).toDouble() / (right as Number).toDouble()
+                return when {
+                    left is Long && right is Long -> left / right
+                    else -> (left as Number).toDouble() / (right as Number).toDouble()
+                }
             }
             STAR -> {
                 checkOperandsType(expr.operator, Number::class.java, left, right)
@@ -107,6 +109,14 @@ class Interpreter : Expr.Visitor<Any>, Stmt.Visitor<Nil> {
         }
     }
 
+    override fun visit(expr: Expr.Get): Any {
+        val objekt = evaluate(expr.objekt)
+        if (objekt is LoxInstance) {
+            return objekt[expr.name]
+        }
+        throw RuntimeError(expr.name, "Only instances have properties.")
+    }
+
     override fun visit(expr: Expr.Grouping): Any = evaluate(expr.expression)
 
     override fun visit(expr: Expr.Literal): Any = expr.value
@@ -121,6 +131,16 @@ class Interpreter : Expr.Visitor<Any>, Stmt.Visitor<Nil> {
 
         return evaluate(expr.right)
     }
+
+    override fun visit(expr: Expr.Set): Any {
+        val objekt = evaluate(expr.objekt)
+        if (objekt !is LoxInstance) throw RuntimeError(expr.name, "Only instances have fields.")
+        val value = evaluate(expr.value)
+        objekt[expr.name] = value
+        return value
+    }
+
+    override fun visit(expr: Expr.This): Any = lookupVariable(expr.keyword, expr)
 
     override fun visit(expr: Expr.Unary): Any {
         val right = evaluate(expr.right)
@@ -206,8 +226,18 @@ class Interpreter : Expr.Visitor<Any>, Stmt.Visitor<Nil> {
         return Nil
     }
 
+    override fun visit(stmt: Stmt.Class): Nil {
+        environment.define(stmt.name.lexeme, Nil)
+        val methods = stmt.methods.map { it.name.lexeme }
+                .zip(stmt.methods.map { LoxFunction(it, environment, it.name.lexeme == "init") })
+                .toMap()
+        val klass = LoxClass(stmt.name.lexeme, methods)
+        environment.assign(stmt.name, klass)
+        return Nil
+    }
+
     override fun visit(stmt: Stmt.Function): Nil {
-        val function = LoxFunction(stmt, environment)
+        val function = LoxFunction(stmt, environment, false)
         environment.define(stmt.name.lexeme, function)
         return Nil
     }

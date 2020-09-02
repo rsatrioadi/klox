@@ -34,7 +34,7 @@ open class Environment(private val enclosing: Environment?) {
         var environment: Environment? = this
         repeat(distance) { environment = environment?.enclosing }
         when (environment) {
-            null -> throw Error("Too deep!")
+            null -> error("Too deep!")
             else -> return environment!!
         }
     }
