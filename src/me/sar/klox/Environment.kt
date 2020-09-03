@@ -1,6 +1,6 @@
 package me.sar.klox
 
-open class Environment(private val enclosing: Environment?) {
+open class Environment(val enclosing: Environment?) {
 
     constructor(): this(null)
 

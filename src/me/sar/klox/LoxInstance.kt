@@ -7,7 +7,7 @@ class LoxInstance(val klass: LoxClass) {
 
     operator fun get(name: Token): Any = when {
         fields.containsKey(name.lexeme) -> fields[name.lexeme]!!
-        klass.hasMethod(name.lexeme) -> klass.getMethod(name.lexeme).bind(this)
+        klass.findMethod(name.lexeme) != null -> klass.findMethod(name.lexeme)!!.bind(this)
         else -> throw RuntimeError(name, "Undefined property '${name.lexeme}'.")
     }
 

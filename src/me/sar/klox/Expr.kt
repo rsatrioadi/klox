@@ -12,6 +12,7 @@ sealed class Expr {
         fun visit(expr: Literal): R
         fun visit(expr: Logical): R
         fun visit(expr: Set): R
+        fun visit(expr: Super): R
         fun visit(expr: This): R
         fun visit(expr: Unary): R
         fun visit(expr: Variable): R
@@ -88,6 +89,15 @@ sealed class Expr {
             val objekt: Expr,
             val name: Token,
             val value: Expr
+    ): Expr() {
+        override fun <R> accept(visitor: Visitor<R>): R {
+            return visitor.visit(this)
+        }
+    }
+
+    data class Super(
+            val keyword: Token,
+            val method: Token
     ): Expr() {
         override fun <R> accept(visitor: Visitor<R>): R {
             return visitor.visit(this)

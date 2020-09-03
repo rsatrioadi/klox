@@ -10,7 +10,7 @@ class Resolver(private val interpreter: Interpreter) : Expr.Visitor<Unit>, Stmt.
     private var currentClass: ClassType = ClassType.NONE
 
     enum class FunctionType { NONE, FUNCTION, INITIALIZER, METHOD }
-    enum class ClassType { NONE, CLASS }
+    enum class ClassType { NONE, CLASS, SUBCLASS }
 
     override fun visit(expr: Expr.Assign) {
         resolve(expr.value)
@@ -52,6 +52,14 @@ class Resolver(private val interpreter: Interpreter) : Expr.Visitor<Unit>, Stmt.
         resolve(expr.objekt)
     }
 
+    override fun visit(expr: Expr.Super) {
+        when {
+            currentClass == ClassType.NONE -> Lox.error(expr.keyword, "Cannot use 'super' outside of a class.")
+            currentClass != ClassType.SUBCLASS -> Lox.error(expr.keyword, "Cannot use 'super' in a class with no superclass.")
+        }
+        resolveLocal(expr, expr.keyword)
+    }
+
     override fun visit(expr: Expr.This) {
         if (currentClass == ClassType.NONE) {
             Lox.error(expr.keyword, "Cannot use 'this' outside of a class.")
@@ -76,6 +84,19 @@ class Resolver(private val interpreter: Interpreter) : Expr.Visitor<Unit>, Stmt.
         declare(stmt.name)
         define(stmt.name)
 
+        if (stmt.superclass != null) {
+            val superclass = stmt.superclass!!
+            when (stmt.name.lexeme) {
+                superclass.name.lexeme -> Lox.error(superclass.name, "A class cannot inherit from itself.")
+                else -> {
+                    currentClass = ClassType.SUBCLASS
+                    resolve(superclass)
+                    beginScope()
+                    scopes.peek()["super"] = true
+                }
+            }
+        }
+
         beginScope()
         scopes.peek()["this"] = true
 
@@ -85,6 +106,8 @@ class Resolver(private val interpreter: Interpreter) : Expr.Visitor<Unit>, Stmt.
         }) }
 
         endScope()
+
+        if (stmt.superclass != null) endScope()
 
         currentClass = enclosingClass
     }
