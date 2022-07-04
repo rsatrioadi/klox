@@ -143,6 +143,15 @@ class Interpreter: Expr.Visitor<Any>, Stmt.Visitor<Nil> {
         return Nil
     }
 
+    override fun visit(stmt: Stmt.If): Nil {
+        if (isTruthy(evaluate(stmt.condition))) {
+            execute(stmt.thenBranch)
+        } else if (stmt.elseBranch != Stmt.Empty) {
+            execute(stmt.elseBranch)
+        }
+        return Nil
+    }
+
     override fun visit(stmt: Stmt.Print): Nil {
         val value = evaluate(stmt.expression)
         println(value.toString())

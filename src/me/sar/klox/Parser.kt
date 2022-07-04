@@ -46,10 +46,21 @@ class Parser(private val tokens: List<Token>) {
     }
 
     private fun statement(): Stmt {
-        // rule: statement -> printStatement | expressionStatement | block ;
+        // rule: statement -> ifStatement | printStatement | expressionStatement | block ;
+        if (match(IF)) return ifStatement()
         if (match(PRINT)) return printStatement()
         if (match(LEFT_BRACE)) return Stmt.Block(block())
         return expressionStatement()
+    }
+
+    private fun ifStatement(): Stmt {
+        // rule: ifStatement -> "if" "(" expression ")" statement ( "else" statement )? ;
+        consume(LEFT_PAREN, "Expect '(' after 'if'.")
+        val condition = expression()
+        consume(RIGHT_PAREN, "Expect ')' after if condition.")
+        val thenBranch = statement()
+        val elseBranch = if (match(ELSE)) statement() else Stmt.Empty
+        return Stmt.If(condition, thenBranch, elseBranch)
     }
 
     private fun block(): List<Stmt> {
