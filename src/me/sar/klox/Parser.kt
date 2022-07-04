@@ -119,18 +119,18 @@ class Parser(private val tokens: List<Token>) {
     }
 
     private fun comparison(): Expr {
-        // rule: comparison -> addition ( ( ">" | ">=" | "<" | "<=" ) addition )* ;
-        return leftAssociativeBinary(Parser::addition,
+        // rule: comparison -> term ( ( ">" | ">=" | "<" | "<=" ) term )* ;
+        return leftAssociativeBinary(Parser::term,
                 GREATER, GREATER_EQUAL, LESS, LESS_EQUAL)
     }
 
-    private fun addition(): Expr {
-        // rule: addition -> multiplication ( ( "-" | "+" ) multiplication )* ;
-        return leftAssociativeBinary(Parser::multiplication,
+    private fun term(): Expr {
+        // rule: addition -> factor ( ( "-" | "+" ) factor )* ;
+        return leftAssociativeBinary(Parser::factor,
                 MINUS, PLUS)
     }
 
-    private fun multiplication(): Expr {
+    private fun factor(): Expr {
         // rule: multiplication -> unary ( ( "/" | "*" ) unary )* ;
         return leftAssociativeBinary(Parser::unary,
                 SLASH, STAR)

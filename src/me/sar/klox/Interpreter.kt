@@ -77,6 +77,7 @@ class Interpreter: Expr.Visitor<Any>, Stmt.Visitor<Nil> {
                 else if (left is String || right is String) return "${left}${right}"
                 throw RuntimeError(expr.operator, "Operands must be two numbers or at least one string.")
             }
+            else -> {}
         }
         return Nil
     }
@@ -97,6 +98,7 @@ class Interpreter: Expr.Visitor<Any>, Stmt.Visitor<Nil> {
                 checkOperandsType(expr.operator, Number::class.java, right)
                 return if (right is Double) -right else -(right as Long)
             }
+            else -> {}
         }
 
         return Nil
